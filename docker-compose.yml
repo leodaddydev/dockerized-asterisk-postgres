@@ -1,0 +1,47 @@
+version: '3'
+
+services:
+  asterisk:
+    image: asterisk:16.8.0
+    container_name: asterisk
+    ports:
+      - "${SMS_PORT-8080}:${WEBSMSD_PORT:-80}" # WEBSMSD port mapping
+      - "5060:5060/udp"                     # SIP UDP port
+      - "5060:5060"                         # SIP TCP port
+      - "5061:5061"                         # SIP TLS port
+      - "100-30000:20000-30000/udp"       # RTP ports
+    environment:
+      - SYSLOG_LEVEL=${SYSLOG_LEVEL-4}      # Logging
+      - HOSTNAME=${TELE_SRV-tele}.${DOMAIN-docker.localhost}
+      - PULSE_SERVER=unix:/run/pulse/socket # Use host audio
+      - PULSE_COOKIE=/run/pulse/cookie      # Use host audio
+      - WEBSMSD_PORT=${WEBSMSD_PORT-80}     # WEBSMSD internal port
+      - ODBCINI=/etc/odbc.ini
+      - ODBCSYSINI=/etc
+    volumes:
+      - tele-conf:/srv                      # Persistent storage
+      - /etc/localtime:/etc/localtime:ro    # Use host timezone
+    networks:
+      - telecom
+    depends_on:
+      - postgres
+  postgres:
+    image: library/postgres:11.1-alpine
+    container_name: postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    volumes:
+      - tele-db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=asterisk
+      - POSTGRES_PASSWORD=asterisk
+    networks:
+      - telecom
+networks:
+  telecom:
+    driver: bridge
+
+volumes:
+  tele-conf:                                # Persistent storage
+  tele-db:                                  # Database storage
